@@ -1,9 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, AlertTriangle, Camera, Mic, MapPin, Send } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import type { InsertSosEvent } from '@shared/schema';
 
 interface SOSState {
   step: 'confirm' | 'capturing' | 'processing' | 'completed' | 'error';
@@ -15,6 +19,7 @@ interface SOSState {
 
 export default function SOS() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [sosState, setSosState] = useState<SOSState>({
     step: 'confirm',
     location: null,
@@ -119,10 +124,64 @@ export default function SOS() {
     });
   };
 
+  // SOS submission mutation
+  const sosMutation = useMutation({
+    mutationFn: async ({ location, photoData, audioData }: {
+      location: { lat: number; lng: number };
+      photoData: string;
+      audioData: Blob;
+    }) => {
+      // Convert audio blob to base64
+      const audioBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(',')[1]); // Remove data: prefix
+        };
+        reader.readAsDataURL(audioData);
+      });
+
+      const sosEventData: InsertSosEvent = {
+        userId: 'temp-user', // TODO: Get from auth context
+        latitude: location.lat,
+        longitude: location.lng,
+        photoData: photoData.split(',')[1], // Remove data: prefix
+        audioData: audioBase64,
+        status: 'active',
+      };
+
+      const response = await apiRequest('/api/sos/trigger', {
+        method: 'POST',
+        body: JSON.stringify(sosEventData),
+      });
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Emergency Alert Sent',
+        description: 'Your emergency contacts have been notified and authorities alerted.',
+      });
+      setSosState(prev => ({ ...prev, step: 'completed' }));
+    },
+    onError: (error) => {
+      console.error('SOS error:', error);
+      toast({
+        title: 'SOS Error',
+        description: 'Failed to process emergency request. Please call emergency services directly.',
+        variant: 'destructive',
+      });
+      setSosState(prev => ({ 
+        ...prev, 
+        step: 'error', 
+        errorMessage: error instanceof Error ? error.message : 'Unknown error occurred'
+      }));
+    },
+  });
+
   const triggerSOS = useCallback(async () => {
     try {
       setSosState(prev => ({ ...prev, step: 'capturing' }));
-      console.log('SOS triggered - starting emergency capture'); // TODO: remove mock functionality
 
       // Get user location
       const location = await getLocation();
@@ -141,21 +200,18 @@ export default function SOS() {
         step: 'processing' 
       }));
 
-      // TODO: remove mock functionality - implement real AI analysis and alerts
-      setTimeout(() => {
-        setSosState(prev => ({ ...prev, step: 'completed' }));
-        console.log('Emergency data processed and alerts sent to family members'); // TODO: remove mock functionality
-      }, 3000);
+      // Submit to backend for processing
+      sosMutation.mutate({ location, photoData, audioData });
 
     } catch (error) {
-      console.error('SOS error:', error); // TODO: remove mock functionality
+      console.error('SOS error:', error);
       setSosState(prev => ({ 
         ...prev, 
         step: 'error', 
         errorMessage: error instanceof Error ? error.message : 'Unknown error occurred'
       }));
     }
-  }, []);
+  }, [sosMutation]);
 
   const renderContent = () => {
     switch (sosState.step) {

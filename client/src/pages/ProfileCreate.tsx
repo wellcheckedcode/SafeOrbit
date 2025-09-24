@@ -1,12 +1,15 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, User, Plus, Trash2 } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { RelationshipType, relationshipTypes } from '@shared/schema';
+import { RelationshipType, relationshipTypes, type InsertUserProfile, type InsertEmergencyContact } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
 
 interface EmergencyContact {
   id: string;
@@ -19,7 +22,8 @@ interface EmergencyContact {
 
 export default function ProfileCreate() {
   const [, navigate] = useLocation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Profile form state
   const [profile, setProfile] = useState({
@@ -65,22 +69,76 @@ export default function ProfileCreate() {
     ));
   };
 
+  // Profile creation mutation
+  const createProfileMutation = useMutation({
+    mutationFn: async ({ profileData, contactsData }: {
+      profileData: InsertUserProfile;
+      contactsData: InsertEmergencyContact[];
+    }) => {
+      // Create profile first
+      const profileResponse = await apiRequest('/api/profiles', {
+        method: 'POST',
+        body: JSON.stringify(profileData)
+      });
+
+      const createdProfile = await profileResponse.json();
+
+      // Then create emergency contacts
+      const contactPromises = contactsData.map(contact => 
+        apiRequest('/api/emergency-contacts', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...contact,
+            userId: createdProfile.id
+          })
+        })
+      );
+
+      await Promise.all(contactPromises);
+      return createdProfile;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Profile Created',
+        description: 'Your profile and emergency contacts have been saved successfully.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/profiles'] });
+      navigate('/');
+    },
+    onError: (error) => {
+      console.error('Profile creation error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create profile. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
-    console.log('Creating profile:', { profile, contacts }); // TODO: remove mock functionality
-    
-    // TODO: remove mock functionality - implement real profile creation
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert('Profile created successfully!');
-      navigate('/');
-    }, 1500);
+    const profileData: InsertUserProfile = {
+      name: profile.name.trim(),
+      email: profile.email.trim(),
+      phone: profile.phone.trim() || null,
+    };
+
+    const contactsData: InsertEmergencyContact[] = contacts.map((contact, index) => ({
+      name: contact.name.trim(),
+      phone: contact.phone.trim(),
+      email: contact.email.trim() || null,
+      relationship: contact.relationship,
+      priority: index + 1,
+      userId: '', // Will be set after profile creation
+    }));
+
+    createProfileMutation.mutate({ profileData, contactsData });
   };
 
   const isFormValid = profile.name.trim() && profile.email.trim() && 
                      contacts.every(c => c.name.trim() && c.phone.trim());
+  const isSubmitting = createProfileMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
