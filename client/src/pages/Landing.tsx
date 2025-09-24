@@ -1,0 +1,112 @@
+import { useLocation } from 'wouter';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Navigation, MapPin, AlertTriangle, User } from 'lucide-react';
+
+export default function Landing() {
+  const [, navigate] = useLocation();
+
+  const features = [
+    {
+      id: 'navigate',
+      title: 'Navigate',
+      description: 'Find safer routes avoiding high-risk areas',
+      icon: <Navigation className="h-12 w-12" />,
+      color: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      borderColor: 'border-blue-200 dark:border-blue-800',
+      path: '/navigate'
+    },
+    {
+      id: 'current-location',
+      title: 'Current Location',
+      description: 'View your location and nearby risk zones',
+      icon: <MapPin className="h-12 w-12" />,
+      color: 'text-green-600 dark:text-green-400',
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      borderColor: 'border-green-200 dark:border-green-800',
+      path: '/current-location'
+    },
+    {
+      id: 'sos',
+      title: 'SOS',
+      description: 'Emergency alert with instant family notification',
+      icon: <AlertTriangle className="h-12 w-12" />,
+      color: 'text-red-600 dark:text-red-400',
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      borderColor: 'border-red-200 dark:border-red-800',
+      path: '/sos'
+    }
+  ];
+
+  const handleFeatureClick = (path: string) => {
+    console.log(`Navigating to ${path}`); // TODO: remove mock functionality
+    navigate(path);
+  };
+
+  const handleCreateProfile = () => {
+    console.log('Create profile clicked'); // TODO: remove mock functionality
+    navigate('/profile/create');
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
+      <div className="container mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-4">
+            SafeZone Mapper
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Your personal safety companion. Navigate safely, stay informed, and get help when you need it most.
+          </p>
+        </div>
+
+        {/* Profile Creation Button */}
+        <div className="text-center mb-12">
+          <Button
+            onClick={handleCreateProfile}
+            variant="outline"
+            size="lg"
+            className="gap-2"
+            data-testid="button-create-profile"
+          >
+            <User className="h-5 w-5" />
+            Create Profile & Add Family Members
+          </Button>
+        </div>
+
+        {/* Feature Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {features.map((feature) => (
+            <Card
+              key={feature.id}
+              className={`aspect-square hover-elevate cursor-pointer transition-all duration-200 ${feature.borderColor} border-2`}
+              onClick={() => handleFeatureClick(feature.path)}
+              data-testid={`card-${feature.id}`}
+            >
+              <CardContent className={`h-full flex flex-col items-center justify-center p-8 ${feature.bgColor}`}>
+                <div className={`mb-6 ${feature.color}`}>
+                  {feature.icon}
+                </div>
+                <h3 className="text-2xl font-bold text-foreground mb-4 text-center">
+                  {feature.title}
+                </h3>
+                <p className="text-muted-foreground text-center leading-relaxed">
+                  {feature.description}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-16 pt-8 border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Stay safe, stay informed. Your security is our priority.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
