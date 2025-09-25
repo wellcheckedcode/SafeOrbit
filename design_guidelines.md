@@ -1,4 +1,4 @@
-# SafeZone Mapper Design Guidelines
+# SafeOrbit Design Guidelines
 
 ## Design Approach
 **Selected Approach:** Design System (Material Design inspired)

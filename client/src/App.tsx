@@ -7,9 +7,19 @@ import Landing from "@/pages/Landing";
 import Navigate from "@/pages/Navigate";
 import CurrentLocation from "@/pages/CurrentLocation";
 import SOS from "@/pages/SOS";
-import ProfileCreate from "@/pages/ProfileCreate";
+// import ProfileCreate from "@/pages/ProfileCreate";
 import Home from "@/pages/Home"; // Crime map view
 import NotFound from "@/pages/not-found";
+import { createContext, useState, useEffect } from "react";
+import { UserProfile } from "@shared/schema";
+
+export const AuthContext = createContext<{
+  user: UserProfile | null;
+  setUser: (user: UserProfile | null) => void;
+}>({
+  user: null,
+  setUser: () => {},
+});
 
 function Router() {
   return (
@@ -18,7 +28,7 @@ function Router() {
       <Route path="/navigate" component={Navigate} />
       <Route path="/current-location" component={CurrentLocation} />
       <Route path="/sos" component={SOS} />
-      <Route path="/profile/create" component={ProfileCreate} />
+      {/* Removed /profile/create route */}
       <Route path="/crime-map" component={Home} />
       <Route component={NotFound} />
     </Switch>
@@ -26,13 +36,32 @@ function Router() {
 }
 
 function App() {
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
+    }
+  }, [user]);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthContext.Provider value={{ user, setUser }}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthContext.Provider>
   );
 }
 

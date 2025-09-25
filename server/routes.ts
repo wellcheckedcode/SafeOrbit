@@ -1,8 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserProfileSchema, insertEmergencyContactSchema, insertSosEventSchema, insertRouteRequestSchema } from "@shared/schema";
-import { analyzeEmergencyImage } from "./gemini";
+import { insertUserProfileSchema, insertEmergencyContactSchema, insertSosEventSchema, insertRouteRequestSchema, insertCrimeIncidentSchema } from "@shared/schema";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+});
+import { analyzeEmergencyImage, generateEmergencySummary } from "./gemini";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User Profile routes
@@ -41,6 +47,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating profile:', error);
       res.status(400).json({ error: 'Invalid profile data' });
+    }
+  });
+
+  // Login route
+  app.post('/api/login', async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      const profile = await storage.authenticateByEmail(email, password);
+      if (!profile) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      res.json({ user: profile });
+    } catch (error) {
+      console.error('Error during login:', error);
+      res.status(400).json({ error: 'Invalid login data' });
     }
   });
 
@@ -104,23 +125,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Analyze emergency image using Gemini AI
       let aiAnalysis = 'Emergency situation detected';
       try {
-        if (validatedData.photoData) {
-          const analysisResult = await analyzeEmergencyImage(validatedData.photoData);
+        if (validatedData.photoPath) {
+          const analysisResult = await analyzeEmergencyImage(validatedData.photoPath);
           aiAnalysis = analysisResult || 'Emergency situation detected';
         }
       } catch (aiError) {
         console.error('AI analysis error:', aiError);
         // Continue with default analysis
       }
-      
+
+      // Get user profile for summary generation
+      const userProfile = await storage.getUserProfile(validatedData.userId);
+
+      // Generate emergency summary using Gemini AI
+      let emergencySummary = 'Emergency summary not available';
+      try {
+        const summaryResult = await generateEmergencySummary(
+          aiAnalysis,
+          { lat: parseFloat(validatedData.lat), lng: parseFloat(validatedData.lng) },
+          userProfile ? { name: userProfile.name, phone: userProfile.phone ?? undefined } : undefined
+        );
+        emergencySummary = summaryResult || 'Emergency summary not available';
+      } catch (summaryError) {
+        console.error('Summary generation error:', summaryError);
+        // Continue with default summary
+      }
+
       // Get emergency contacts for the user
       const emergencyContacts = await storage.getEmergencyContacts(validatedData.userId);
       
+      // Send Telegram notification
+      try {
+        const message = `🚨 SOS Alert!\nLocation: ${validatedData.lat}, ${validatedData.lng}\nAI Analysis: ${aiAnalysis}`;
+        const response = await fetch(`https://api.telegram.org/bot8058173296:AAFjAK5ZQlAjlbPkN4w3Im8O0qL4WldznGQ/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: '1664796294', text: message })
+        });
+        if (response.ok) {
+          console.log('Telegram notification sent successfully');
+        } else {
+          console.error('Failed to send Telegram message:', await response.text());
+        }
+      } catch (telegramError) {
+        console.error('Failed to send Telegram message:', telegramError);
+      }
+
       // TODO: Send SMS/email alerts to emergency contacts
       // For now, we'll log the alert details
       console.log('EMERGENCY ALERT:', {
         sosEventId: sosEvent.id,
-        location: { lat: validatedData.latitude, lng: validatedData.longitude },
+        location: { lat: validatedData.lat, lng: validatedData.lng },
         aiAnalysis,
         contactsToAlert: emergencyContacts.length
       });
@@ -128,6 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         ...sosEvent,
         aiAnalysis,
+        emergencySummary,
         contactsAlerted: emergencyContacts.length
       });
     } catch (error) {
@@ -173,11 +229,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Crime data endpoint (existing functionality)
   app.get('/api/crimes', async (req, res) => {
     try {
-      const { allCrimeData } = await import('../client/src/data/mockCrimeData');
-      res.json(allCrimeData);
+      const crimes = await storage.getCrimeIncidents();
+      res.json(crimes);
     } catch (error) {
       console.error('Error fetching crimes:', error);
       res.status(500).json({ error: 'Failed to fetch crime data' });
+    }
+  });
+
+  // Create new crime incident report
+  app.post('/api/crimes', async (req, res) => {
+    try {
+      const validatedData = insertCrimeIncidentSchema.parse(req.body);
+      const incident = await storage.createCrimeIncident(validatedData);
+      res.status(201).json(incident);
+    } catch (error) {
+      console.error('Error creating crime incident:', error);
+      res.status(400).json({ error: 'Invalid crime incident data' });
     }
   });
 

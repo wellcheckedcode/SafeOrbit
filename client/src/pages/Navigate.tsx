@@ -28,17 +28,21 @@ export default function Navigate() {
       fromLocation: string;
       toLocation: string;
     }) => {
-      const routeRequestData: InsertRouteRequest = {
-        userId: 'temp-user', // TODO: Get from auth context
-        fromLocation,
-        toLocation,
-        requestedAt: new Date(),
+      // Mock geocoding - in real app, use geocoding service
+      const mockCoords = {
+        from: { lat: 26.8467, lng: 80.9462 }, // Lucknow center
+        to: { lat: 26.8750, lng: 80.9750 }   // Different location
       };
 
-      const response = await apiRequest('/api/routes/plan', {
-        method: 'POST',
-        body: JSON.stringify(routeRequestData),
-      });
+      const routeRequestData: InsertRouteRequest = {
+        userId: null, // TODO: Get from auth context
+        originLat: mockCoords.from.lat.toString(),
+        originLng: mockCoords.from.lng.toString(),
+        destLat: mockCoords.to.lat.toString(),
+        destLng: mockCoords.to.lng.toString(),
+      };
+
+      const response = await apiRequest('POST', '/api/routes/plan', routeRequestData);
 
       return response.json();
     },

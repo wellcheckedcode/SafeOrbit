@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type UserProfile, type InsertUserProfile, type EmergencyContact, type InsertEmergencyContact, type SosEvent, type InsertSosEvent, type RouteRequest, type InsertRouteRequest } from "@shared/schema";
+import { type User, type InsertUser, type UserProfile, type InsertUserProfile, type EmergencyContact, type InsertEmergencyContact, type SosEvent, type InsertSosEvent, type RouteRequest, type InsertRouteRequest, type CrimeIncident, type InsertCrimeIncident } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // modify the interface with any CRUD methods
@@ -9,7 +9,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+  authenticate(username: string, password: string): Promise<User | undefined>;
+  authenticateByEmail(email: string, password: string): Promise<UserProfile | undefined>;
+
   // User profile methods
   getUserProfile(id: string): Promise<UserProfile | undefined>;
   getUserProfileByEmail(email: string): Promise<UserProfile | undefined>;
@@ -34,6 +36,11 @@ export interface IStorage {
   getRouteRequests(userId: string): Promise<RouteRequest[]>;
   getRouteRequest(id: string): Promise<RouteRequest | undefined>;
   createRouteRequest(request: InsertRouteRequest): Promise<RouteRequest>;
+
+  // Crime incident methods
+  getCrimeIncidents(): Promise<CrimeIncident[]>;
+  getCrimeIncident(id: string): Promise<CrimeIncident | undefined>;
+  createCrimeIncident(incident: InsertCrimeIncident): Promise<CrimeIncident>;
 }
 
 export class MemStorage implements IStorage {
@@ -42,6 +49,7 @@ export class MemStorage implements IStorage {
   private emergencyContacts: Map<string, EmergencyContact>;
   private sosEvents: Map<string, SosEvent>;
   private routeRequests: Map<string, RouteRequest>;
+  private crimeIncidents: Map<string, CrimeIncident>;
 
   constructor() {
     this.users = new Map();
@@ -49,6 +57,7 @@ export class MemStorage implements IStorage {
     this.emergencyContacts = new Map();
     this.sosEvents = new Map();
     this.routeRequests = new Map();
+    this.crimeIncidents = new Map();
   }
 
   // Original user methods
@@ -69,6 +78,19 @@ export class MemStorage implements IStorage {
     return user;
   }
 
+  async authenticate(username: string, password: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username && user.password === password
+    );
+  }
+
+  async authenticateByEmail(email: string, password: string): Promise<UserProfile | undefined> {
+    const profile = Array.from(this.userProfiles.values()).find(
+      (profile) => profile.email === email && profile.password === password
+    );
+    return profile;
+  }
+
   // User profile methods
   async getUserProfile(id: string): Promise<UserProfile | undefined> {
     return this.userProfiles.get(id);
@@ -82,8 +104,8 @@ export class MemStorage implements IStorage {
 
   async createUserProfile(insertProfile: InsertUserProfile): Promise<UserProfile> {
     const id = randomUUID();
-    const profile: UserProfile = { 
-      ...insertProfile, 
+    const profile: UserProfile = {
+      ...insertProfile,
       id,
       phone: insertProfile.phone ?? null,
       emergencyContactIds: null,
@@ -191,8 +213,8 @@ export class MemStorage implements IStorage {
 
   async createRouteRequest(insertRequest: InsertRouteRequest): Promise<RouteRequest> {
     const id = randomUUID();
-    const request: RouteRequest = { 
-      ...insertRequest, 
+    const request: RouteRequest = {
+      ...insertRequest,
       id,
       userId: insertRequest.userId ?? null,
       routeData: insertRequest.routeData ?? null,
@@ -201,6 +223,25 @@ export class MemStorage implements IStorage {
     };
     this.routeRequests.set(id, request);
     return request;
+  }
+
+  // Crime incident methods
+  async getCrimeIncidents(): Promise<CrimeIncident[]> {
+    return Array.from(this.crimeIncidents.values());
+  }
+
+  async getCrimeIncident(id: string): Promise<CrimeIncident | undefined> {
+    return this.crimeIncidents.get(id);
+  }
+
+  async createCrimeIncident(insertIncident: InsertCrimeIncident): Promise<CrimeIncident> {
+    const id = randomUUID();
+    const incident: CrimeIncident = {
+      ...insertIncident,
+      id,
+    };
+    this.crimeIncidents.set(id, incident);
+    return incident;
   }
 }
 

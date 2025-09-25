@@ -76,21 +76,15 @@ export default function ProfileCreate() {
       contactsData: InsertEmergencyContact[];
     }) => {
       // Create profile first
-      const profileResponse = await apiRequest('/api/profiles', {
-        method: 'POST',
-        body: JSON.stringify(profileData)
-      });
+      const profileResponse = await apiRequest('POST', '/api/profiles', profileData);
 
       const createdProfile = await profileResponse.json();
 
       // Then create emergency contacts
-      const contactPromises = contactsData.map(contact => 
-        apiRequest('/api/emergency-contacts', {
-          method: 'POST',
-          body: JSON.stringify({
-            ...contact,
-            userId: createdProfile.id
-          })
+      const contactPromises = contactsData.map(contact =>
+        apiRequest('POST', '/api/emergency-contacts', {
+          ...contact,
+          userId: createdProfile.id
         })
       );
 
@@ -121,6 +115,7 @@ export default function ProfileCreate() {
     const profileData: InsertUserProfile = {
       name: profile.name.trim(),
       email: profile.email.trim(),
+      password: '', // Add password field here, should be collected from user input in UI
       phone: profile.phone.trim() || null,
     };
 

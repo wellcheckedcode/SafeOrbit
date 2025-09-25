@@ -1,0 +1,21 @@
+- [x] Modify client/src/pages/Landing.tsx to add login/signup options in profile section
+  - [x] Import LoginModal component
+  - [x] Add state for choice dialog (isChoiceModalOpen)
+  - [x] Add state for login modal (isLoginModalOpen)
+  - [x] Modify Profile button to open choice dialog
+  - [x] Add choice dialog with Login and Signup buttons
+  - [x] Handle Login button to open LoginModal
+  - [x] Handle Signup button to open ProfileModal
+  - [x] Add LoginModal to JSX
+- [x] Test the changes - Note: Login requires creating a profile first via Signup
+
+- [x] Add Report Incident card to landing page
+  - [x] Create ReportModal component with form fields (type, location, severity, date, description, photos, videos)
+  - [x] Add "Report Incident" card adjacent to Navigate card
+  - [x] Update grid layout to md:grid-cols-2 lg:grid-cols-4 for 4 cards
+  - [x] Handle card click to open ReportModal
+  - [x] On form submit, store report in Neon DB via API
+  - [x] Update Home.tsx to fetch crimes from API using React Query
+  - [x] Display all reports on map with markers
+  - [x] Invalidate query after successful submission for real-time updates
+- [x] Test report submission and map updates

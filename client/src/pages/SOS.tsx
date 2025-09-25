@@ -143,17 +143,15 @@ export default function SOS() {
 
       const sosEventData: InsertSosEvent = {
         userId: 'temp-user', // TODO: Get from auth context
-        latitude: location.lat,
-        longitude: location.lng,
-        photoData: photoData.split(',')[1], // Remove data: prefix
-        audioData: audioBase64,
+        lat: location.lat.toString(),
+        lng: location.lng.toString(),
+        photoPath: photoData.split(',')[1], // Remove data: prefix
+        audioPath: audioBase64,
         status: 'active',
       };
 
-      const response = await apiRequest('/api/sos/trigger', {
-        method: 'POST',
-        body: JSON.stringify(sosEventData),
-      });
+      const response = await apiRequest('POST', '/api/sos/trigger', sosEventData);
+      
 
       return response.json();
     },

@@ -1,12 +1,19 @@
-import { useState, useCallback, useMemo } from 'react';
-import MapContainer from '@/components/MapContainer';
-import SearchBar from '@/components/SearchBar';
-import SafetyScoreCard from '@/components/SafetyScoreCard';
-import FilterPanel from '@/components/FilterPanel';
-import CrimeDetailsPopup from '@/components/CrimeDetailsPopup';
-import { allCrimeData } from '@/data/mockCrimeData';
-import { calculateSafetyScore, filterCrimesByDateRange, getCrimesInBounds } from '@/utils/safetyCalculations';
-import { CrimeIncident, CrimeType, DateRange } from '@shared/schema';
+import { useState, useCallback, useMemo, useContext } from "react";
+import { useQuery } from "@tanstack/react-query";
+import MapContainer from "@/components/MapContainer";
+import SearchBar from "@/components/SearchBar";
+import SafetyScoreCard from "@/components/SafetyScoreCard";
+import FilterPanel from "@/components/FilterPanel";
+import CrimeDetailsPopup from "@/components/CrimeDetailsPopup";
+import { calculateSafetyScore, filterCrimesByDateRange, getCrimesInBounds } from "@/utils/safetyCalculations";
+import { CrimeIncident, CrimeType, DateRange } from "@shared/schema";
+import { AuthContext } from "@/App";
+import { UserProfile } from "@shared/schema";
+import { User as UserIcon } from "lucide-react";
+import { useState as useStateReact } from "react";
+import LoginModal from "@/components/LoginModal";
+import ProfileModal from "@/components/ProfileModal";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Home() {
   const [mapBounds, setMapBounds] = useState<{
@@ -22,20 +29,34 @@ export default function Home() {
     crimeTypes: CrimeType[];
     dateRange: DateRange;
   }>({
-    crimeTypes: ['Theft', 'Assault', 'Burglary', 'Vandalism', 'Robbery'],
-    dateRange: 'All Time'
+    crimeTypes: ["Theft", "Assault", "Burglary", "Vandalism", "Robbery"],
+    dateRange: "All Time",
   });
+
+  // Fetch crimes from API
+  const { data: crimes = [], isLoading: crimesLoading } = useQuery<CrimeIncident[]>({
+    queryKey: ['crimes'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/crimes');
+      return response.json();
+    },
+  });
+
+  // Auth context
+  const { user, setUser } = useContext(AuthContext);
+
+  // Modal states
+  const [isLoginOpen, setIsLoginOpen] = useStateReact(false);
+  const [isProfileOpen, setIsProfileOpen] = useStateReact(false);
 
   // Filter crimes based on current filters
   const filteredCrimes = useMemo(() => {
-    let crimes = allCrimeData.filter(crime => 
-      filters.crimeTypes.includes(crime.type as CrimeType)
-    );
-    
-    crimes = filterCrimesByDateRange(crimes, filters.dateRange);
-    
-    return crimes;
-  }, [filters]);
+    let filtered = crimes.filter((crime) => filters.crimeTypes.includes(crime.type as CrimeType));
+
+    filtered = filterCrimesByDateRange(filtered, filters.dateRange);
+
+    return filtered;
+  }, [crimes, filters]);
 
   // Get crimes visible in current map bounds
   const visibleCrimes = useMemo(() => {
@@ -48,14 +69,17 @@ export default function Home() {
     return calculateSafetyScore(visibleCrimes);
   }, [visibleCrimes]);
 
-  const handleBoundsChange = useCallback((bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  }) => {
-    setMapBounds(bounds);
-  }, []);
+  const handleBoundsChange = useCallback(
+    (bounds: {
+      north: number;
+      south: number;
+      east: number;
+      west: number;
+    }) => {
+      setMapBounds(bounds);
+    },
+    []
+  );
 
   const handleCrimeClick = useCallback((crime: CrimeIncident) => {
     setSelectedCrime(crime);
@@ -63,24 +87,24 @@ export default function Home() {
 
   const handleSearch = useCallback((query: string) => {
     // TODO: remove mock functionality - implement real geocoding
-    console.log('Searching for:', query);
-    
+    console.log("Searching for:", query);
+
     // Mock search results for demo - map common Lucknow locations
     const locations: Record<string, { lat: number; lng: number }> = {
-      'hazratganj': { lat: 26.8467, lng: 80.9462 },
-      'gomti nagar': { lat: 26.8950, lng: 81.0150 },
-      'indira nagar': { lat: 26.8650, lng: 80.9750 },
-      'aminabad': { lat: 26.8400, lng: 80.9200 },
-      'alambagh': { lat: 26.8100, lng: 80.8850 },
-      'chowk': { lat: 26.8520, lng: 80.9100 },
-      'mahanagar': { lat: 26.8800, lng: 80.9900 },
-      'aliganj': { lat: 26.9100, lng: 80.9600 },
-      'nishatganj': { lat: 26.8350, lng: 80.9350 }
+      hazratganj: { lat: 26.8467, lng: 80.9462 },
+      "gomti nagar": { lat: 26.895, lng: 81.015 },
+      "indira nagar": { lat: 26.865, lng: 80.975 },
+      aminabad: { lat: 26.84, lng: 80.92 },
+      alambagh: { lat: 26.81, lng: 80.885 },
+      chowk: { lat: 26.852, lng: 80.91 },
+      mahanagar: { lat: 26.88, lng: 80.99 },
+      aliganj: { lat: 26.91, lng: 80.96 },
+      nishatganj: { lat: 26.835, lng: 80.935 },
     };
 
     const searchKey = query.toLowerCase();
-    const location = locations[searchKey] || 
-      Object.entries(locations).find(([key]) => key.includes(searchKey))?.[1];
+    const location =
+      locations[searchKey] || Object.entries(locations).find(([key]) => key.includes(searchKey))?.[1];
 
     if (location) {
       setSearchLocation(location);
@@ -90,16 +114,30 @@ export default function Home() {
     }
   }, []);
 
-  const handleFilterChange = useCallback((newFilters: {
-    crimeTypes: CrimeType[];
-    dateRange: DateRange;
-  }) => {
-    setFilters(newFilters);
-  }, []);
+  const handleFilterChange = useCallback(
+    (newFilters: {
+      crimeTypes: CrimeType[];
+      dateRange: DateRange;
+    }) => {
+      setFilters(newFilters);
+    },
+    []
+  );
 
   const toggleFilterPanel = useCallback(() => {
-    setIsFilterOpen(prev => !prev);
+    setIsFilterOpen((prev) => !prev);
   }, []);
+
+  // Profile icon click handler
+  const handleProfileIconClick = () => {
+    if (user) {
+      // If logged in, open profile modal
+      setIsProfileOpen(true);
+    } else {
+      // If not logged in, open login modal
+      setIsLoginOpen(true);
+    }
+  };
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
@@ -110,19 +148,18 @@ export default function Home() {
 
       {/* Safety Score Card - Fixed at top left */}
       <div className="absolute top-4 left-4 z-40">
-        <SafetyScoreCard 
-          safetyScore={safetyScore}
-          crimeCount={visibleCrimes.length}
-        />
+        <SafetyScoreCard safetyScore={safetyScore} crimeCount={visibleCrimes.length} />
       </div>
 
       {/* Filter Panel - Fixed at top right */}
       <div className="absolute top-4 right-4 z-40">
-        <FilterPanel
-          onFilterChange={handleFilterChange}
-          isOpen={isFilterOpen}
-          onToggle={toggleFilterPanel}
-        />
+        <FilterPanel onFilterChange={handleFilterChange} isOpen={isFilterOpen} onToggle={toggleFilterPanel} />
+      </div>
+
+      {/* Profile Icon - Fixed at top right corner, left of filter panel */}
+      <div className="absolute top-4 right-20 z-50 cursor-pointer" onClick={handleProfileIconClick} title={user ? `Logged in as ${user.name}` : "Login / Create Profile"}>
+        <UserIcon className="h-8 w-8 text-blue-600" />
+        {user && <span className="ml-2 font-semibold text-blue-600">{user.name}</span>}
       </div>
 
       {/* Map Container - Full screen background */}
@@ -134,11 +171,20 @@ export default function Home() {
       />
 
       {/* Crime Details Popup */}
-      <CrimeDetailsPopup
-        crime={selectedCrime}
-        isOpen={!!selectedCrime}
-        onClose={() => setSelectedCrime(null)}
+      <CrimeDetailsPopup crime={selectedCrime} isOpen={!!selectedCrime} onClose={() => setSelectedCrime(null)} />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onSwitchToProfileCreate={() => {
+          setIsLoginOpen(false);
+          setIsProfileOpen(true);
+        }}
       />
+
+      {/* Profile Modal */}
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 }

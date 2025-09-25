@@ -46,6 +46,7 @@ export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  password: text("password").notNull(),
   phone: text("phone"),
   emergencyContactIds: text("emergency_contact_ids").array(),
   createdAt: text("created_at").default(sql`now()`),
@@ -61,6 +62,8 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   relationship: text("relationship").notNull(),
   priority: integer("priority").default(1),
 });
+
+// SOS events schema
 
 // SOS events schema
 export const sosEvents = pgTable("sos_events", {
@@ -93,6 +96,7 @@ export const routeRequests = pgTable("route_requests", {
 export const insertUserProfileSchema = createInsertSchema(userProfiles).pick({
   name: true,
   email: true,
+  password: true,
   phone: true,
 });
 
