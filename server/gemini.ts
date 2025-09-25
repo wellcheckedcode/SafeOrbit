@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "mock-key" })
 export async function analyzeEmergencyImage(jpegImagePath: string, location?: { lat: number; lng: number }): Promise<string> {
   try {
     // TODO: remove mock functionality when API key is available
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "GEN_AI_API_KEY=AIzaSyD1yfDKrbbSUFmcIyzIZNO-eOyXRSc-AQU") {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "mock-key") {
       return `MOCK ANALYSIS: Emergency situation detected at location ${location ? `${location.lat}, ${location.lng}` : 'unknown location'}. Image analysis would be performed here with Gemini AI. Please set GEMINI_API_KEY to enable real analysis.`;
     }
 
